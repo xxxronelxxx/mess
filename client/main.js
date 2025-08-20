@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -19,15 +19,29 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'assets', 'icon.png'),
     titleBarStyle: 'default',
-    show: false
+    show: false,
+    // Убираем меню окна
+    autoHideMenuBar: true
   });
+
+  // Убираем меню полностью
+  Menu.setApplicationMenu(null);
 
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:3001');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    // Проверяем существование dist папки
+    const distPath = path.join(__dirname, 'dist', 'index.html');
+    const fs = require('fs');
+    
+    if (fs.existsSync(distPath)) {
+      mainWindow.loadFile(distPath);
+    } else {
+      // Если dist папки нет, показываем ошибку
+      mainWindow.loadURL('data:text/html,<html><body><h1>Ошибка: папка dist не найдена</h1><p>Запустите сначала: npm run build</p></body></html>');
+    }
   }
 
   // Show window when ready

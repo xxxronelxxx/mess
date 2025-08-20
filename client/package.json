@@ -4,11 +4,12 @@
   "description": "Electron client for Telegram-inspired messenger",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "npm run build && electron .",
     "dev": "concurrently \"npm run watch\" \"npm run electron\"",
     "watch": "webpack --mode development --watch",
     "electron": "wait-on http://localhost:3001 && electron .",
     "build": "webpack --mode production",
+    "build:dev": "webpack --mode development",
     "dist": "npm run build && electron-builder",
     "pack": "electron-builder --dir",
     "dist:win": "npm run build && electron-builder --win",
