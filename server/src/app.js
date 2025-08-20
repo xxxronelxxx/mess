@@ -30,8 +30,8 @@ app.use(cors(config.cors));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '..', config.storage.uploads)));
+// Static files (ensure absolute path resolution)
+app.use('/uploads', express.static(path.resolve(config.storage.uploads)));
 
 // Routes
 app.use('/api/auth', authRoutes);

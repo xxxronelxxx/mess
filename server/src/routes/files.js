@@ -6,80 +6,7 @@ const auth = require('../middleware/auth');
 const config = require('../../config/config');
 const router = express.Router();
 
-// Download file
-router.get('/:fileId', auth, async (req, res) => {
-  try {
-    const { fileId } = req.params;
-
-    // Get file info
-    const files = await database.query(`
-      SELECT f.*, u.username as uploaded_by_username
-      FROM files f
-      JOIN users u ON f.uploaded_by = u.id
-      WHERE f.id = ?
-    `, [fileId]);
-
-    if (files.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    const file = files[0];
-
-    // Check if user has access to the file (is participant in the chat)
-    if (file.chat_id) {
-      const participants = await database.query(
-        'SELECT id FROM chat_participants WHERE chat_id = ? AND user_id = ?',
-        [file.chat_id, req.user.userId]
-      );
-
-      if (participants.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied'
-        });
-      }
-    } else if (file.uploaded_by !== req.user.userId) {
-      // If file is not in a chat, only the uploader can access it
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    const filePath = path.join(config.storage.uploads, file.file_path);
-
-    // Check if file exists
-    try {
-      await fs.access(filePath);
-    } catch (error) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found on disk'
-      });
-    }
-
-    // Set headers for download
-    res.setHeader('Content-Type', file.mime_type);
-    res.setHeader('Content-Disposition', `attachment; filename="${file.original_name}"`);
-    res.setHeader('Content-Length', file.file_size);
-
-    // Stream file
-    const fileStream = require('fs').createReadStream(filePath);
-    fileStream.pipe(res);
-
-  } catch (error) {
-    console.error('Download file error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-});
-
-// Get file info
+// Get file info (define before parameterized download route to avoid ambiguity)
 router.get('/:fileId/info', auth, async (req, res) => {
   try {
     const { fileId } = req.params;
@@ -156,6 +83,79 @@ router.get('/:fileId/info', auth, async (req, res) => {
   }
 });
 
+// Download file (keep after more specific routes)
+router.get('/:fileId', auth, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+
+    // Get file info
+    const files = await database.query(`
+      SELECT f.*, u.username as uploaded_by_username
+      FROM files f
+      JOIN users u ON f.uploaded_by = u.id
+      WHERE f.id = ?
+    `, [fileId]);
+
+    if (files.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    const file = files[0];
+
+    // Check if user has access to the file (is participant in the chat)
+    if (file.chat_id) {
+      const participants = await database.query(
+        'SELECT id FROM chat_participants WHERE chat_id = ? AND user_id = ?',
+        [file.chat_id, req.user.userId]
+      );
+
+      if (participants.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+    } else if (file.uploaded_by !== req.user.userId) {
+      // If file is not in a chat, only the uploader can access it
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const filePath = path.join(path.resolve(config.storage.uploads), file.file_path);
+
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on disk'
+      });
+    }
+
+    // Set headers for download
+    res.setHeader('Content-Type', file.mime_type);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.original_name}"`);
+    res.setHeader('Content-Length', file.file_size);
+
+    // Stream file
+    const fileStream = require('fs').createReadStream(filePath);
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Download file error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Delete file
 router.delete('/:fileId', auth, async (req, res) => {
   try {
@@ -200,7 +200,7 @@ router.delete('/:fileId', auth, async (req, res) => {
     }
 
     // Delete file from disk
-    const filePath = path.join(config.storage.uploads, file.file_path);
+    const filePath = path.join(path.resolve(config.storage.uploads), file.file_path);
     try {
       await fs.unlink(filePath);
     } catch (error) {

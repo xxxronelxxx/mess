@@ -11,7 +11,7 @@ const router = express.Router();
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(config.storage.uploads, 'avatars'));
+    cb(null, path.join(path.resolve(config.storage.uploads), 'avatars'));
   },
   filename: (req, file, cb) => {
     const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;

@@ -100,12 +100,14 @@ const createTables = async () => {
 
     // Create storage directories
     const config = require('../../config/config');
+    const baseUploads = path.resolve(config.storage.uploads);
+    const baseChats = path.resolve(config.storage.chats);
     const dirs = [
-      config.storage.uploads,
-      config.storage.chats,
-      path.join(config.storage.uploads, 'avatars'),
-      path.join(config.storage.uploads, 'files'),
-      path.join(config.storage.uploads, 'media')
+      baseUploads,
+      baseChats,
+      path.join(baseUploads, 'avatars'),
+      path.join(baseUploads, 'files'),
+      path.join(baseUploads, 'media')
     ];
 
     for (const dir of dirs) {

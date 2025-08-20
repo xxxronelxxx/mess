@@ -11,9 +11,10 @@ const router = express.Router();
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    const baseUploads = path.resolve(config.storage.uploads);
     const uploadPath = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') 
-      ? path.join(config.storage.uploads, 'media')
-      : path.join(config.storage.uploads, 'files');
+      ? path.join(baseUploads, 'media')
+      : path.join(baseUploads, 'files');
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
@@ -64,7 +65,7 @@ router.get('/:chatId', auth, async (req, res) => {
     }
 
     // Get chat file path
-    const chatFile = path.join(config.storage.chats, `chat_${chatId}.json`);
+    const chatFile = path.join(path.resolve(config.storage.chats), `chat_${chatId}.json`);
     
     let messages = [];
     try {
@@ -332,7 +333,7 @@ router.get('/:chatId/pinned', auth, async (req, res) => {
     `, [chatId]);
 
     // Get actual message content from chat file
-    const chatFile = path.join(config.storage.chats, `chat_${chatId}.json`);
+    const chatFile = path.join(path.resolve(config.storage.chats), `chat_${chatId}.json`);
     let messages = [];
     
     try {

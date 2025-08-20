@@ -181,11 +181,15 @@ router.post('/group', auth, async (req, res) => {
 
     // Add participants (including creator)
     const allParticipantIds = [req.user.userId, ...participantIds];
-    const participantValues = allParticipantIds.map(id => [chatId, id]);
-    
+    const participantRows = allParticipantIds.map(id => [chatId, id, id === req.user.userId ? 'owner' : 'member']);
+
+    // Build placeholders for bulk insert to ensure mysql2 compatibility
+    const placeholders = participantRows.map(() => '(?, ?, ?)').join(', ');
+    const flatValues = participantRows.flat();
+
     await database.query(
-      'INSERT INTO chat_participants (chat_id, user_id, role) VALUES ?',
-      [participantValues.map(([chatId, userId]) => [chatId, userId, userId === req.user.userId ? 'owner' : 'member'])]
+      `INSERT INTO chat_participants (chat_id, user_id, role) VALUES ${placeholders}`,
+      flatValues
     );
 
     // Get chat details
@@ -351,6 +355,61 @@ router.delete('/:chatId/leave', auth, async (req, res) => {
 
   } catch (error) {
     console.error('Leave chat error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get chat details by ID (only if requester is a participant)
+router.get('/:chatId', auth, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    // Check if user is participant in chat
+    const participants = await database.query(
+      'SELECT id FROM chat_participants WHERE chat_id = ? AND user_id = ?',
+      [chatId, req.user.userId]
+    );
+
+    if (participants.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    // Get chat details for this user
+    const chatDetails = await database.query(`
+      SELECT 
+        c.id,
+        c.name,
+        c.type,
+        c.created_at,
+        c.updated_at,
+        cp.is_pinned,
+        cp.joined_at
+      FROM chats c
+      JOIN chat_participants cp ON c.id = cp.chat_id
+      WHERE c.id = ? AND cp.user_id = ?
+      LIMIT 1
+    `, [chatId, req.user.userId]);
+
+    if (chatDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: chatDetails[0]
+    });
+
+  } catch (error) {
+    console.error('Get chat by id error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
